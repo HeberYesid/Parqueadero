@@ -138,63 +138,58 @@ public class ParqueaderoGUI {
     }
 
     private void registrarEntrada(ActionEvent e) {
-    String placa = txtPlaca.getText().trim().toUpperCase();
-    if (placa.isEmpty()) {
-        JOptionPane.showMessageDialog(frame, "Por favor ingrese la placa.");
-        return;
-    }
-
-    String pais = (String) cbPais.getSelectedItem();
-    boolean esDiscapacitado = chkDiscapacitado.isSelected();
-    String marca = (String) cbMarca.getSelectedItem();
-    String color = (String) cbColor.getSelectedItem();
-
-    // Validar placa según país
-    if (pais.equals("Colombiana") && !placa.matches("[A-Z]{3}[0-9]{3}")) {
-        JOptionPane.showMessageDialog(frame, "Placa colombiana inválida (Formato: ABC123).");
-        return;
-    } else if (pais.equals("Venezolana") && !placa.matches("[A-Z]{2}[0-9]{3}[A-Z]{2}")) {
-        JOptionPane.showMessageDialog(frame, "Placa venezolana inválida (Formato: AB123CD).");
-        return;
-    }
-
-    if (parqueadero.getVehiculos().containsKey(placa)) {
-        JOptionPane.showMessageDialog(frame, "El vehículo ya está registrado.");
-        return;
-    }
-
-    // Insertar datos en la base de datos
-    try (Connection conn =(DriverManager.getConnection("jdbc:mysql://localhost:3306/parqueadero", "root", ""));
-        ) {
-        String sql = "INSERT INTO vehiculos (placa, pais, discapacitado, marca, color) VALUES (?, ?, ?, ?, ?)";
-        try (PreparedStatement stmt = conn.prepareStatement(sql)) {
-            stmt.setString(1, placa);
-            stmt.setString(2, pais);
-            stmt.setBoolean(3, esDiscapacitado);
-            stmt.setString(4, marca);
-            stmt.setString(5, color);
-
-            int rowsInserted = stmt.executeUpdate();
-            if (rowsInserted > 0) {
-                JOptionPane.showMessageDialog(frame, "Vehículo registrado en la base de datos exitosamente.");
-            }
+        String placa = txtPlaca.getText().trim().toUpperCase();
+        if (placa.isEmpty()) {
+            JOptionPane.showMessageDialog(frame, "Por favor ingrese la placa.");
+            return;
         }
-    } catch (SQLException ex) {
-        ex.printStackTrace();
-        JOptionPane.showMessageDialog(frame, "Error al registrar el vehículo en la base de datos: " + ex.getMessage());
-        return;
-    }
 
-    // Registrar en el parqueadero y actualizar GUI
-    int espacio = parqueadero.registrarVehiculo(placa, marca, color, esDiscapacitado);
-    if (espacio == -1) {
-        JOptionPane.showMessageDialog(frame, "No hay espacios disponibles.");
-    } else {
-        actualizarEspacios();
-        JOptionPane.showMessageDialog(frame, "Vehículo registrado exitosamente en el sistema.");
-    }
-}
+        String pais = (String) cbPais.getSelectedItem();
+        boolean esDiscapacitado = chkDiscapacitado.isSelected();
+        String marca = (String) cbMarca.getSelectedItem();
+        String color = (String) cbColor.getSelectedItem();
 
+        // Validar placa según país
+        if (pais.equals("Colombiana") && !placa.matches("[A-Z]{3}[0-9]{3}")) {
+            JOptionPane.showMessageDialog(frame, "Placa colombiana inválida (Formato: ABC123).");
+            return;
+        } else if (pais.equals("Venezolana") && !placa.matches("[A-Z]{2}[0-9]{3}[A-Z]{2}")) {
+            JOptionPane.showMessageDialog(frame, "Placa venezolana inválida (Formato: AB123CD).");
+            return;
+        }
+
+        if (parqueadero.getVehiculos().containsKey(placa)) {
+            JOptionPane.showMessageDialog(frame, "El vehículo ya está registrado.");
+            return;
+        }
+
+        // Insertar datos en la base de datos
+        try (Connection conn = DriverManager.getConnection("jdbc:mysql://localhost:3306/parqueadero", "root", "")) {
+            String sql = "INSERT INTO vehiculos (placa, pais, discapacitado, marca, color) VALUES (?, ?, ?, ?, ?)";
+            try (PreparedStatement stmt = conn.prepareStatement(sql)) {
+                stmt.setString(1, placa);
+                stmt.setString(2, pais);
+                stmt.setBoolean(3, esDiscapacitado);
+                stmt.setString(4, marca);
+                stmt.setString(5, color);
+
+                stmt.executeUpdate();
+                
+                // Registrar en el parqueadero y actualizar GUI
+                int espacio = parqueadero.registrarVehiculo(placa, marca, color, esDiscapacitado);
+                if (espacio == -1) {
+                    JOptionPane.showMessageDialog(frame, "No hay espacios disponibles en el parqueadero.");
+                } else {
+                    actualizarEspacios();
+                    JOptionPane.showMessageDialog(frame, 
+                        "Vehículo registrado exitosamente en la base de datos y asignado al espacio " + (espacio + 1));
+                }
+            }
+        } catch (SQLException ex) {
+            ex.printStackTrace();
+            JOptionPane.showMessageDialog(frame, "Error al registrar el vehículo en la base de datos: " + ex.getMessage());
+        }
+    }
 
     private void registrarSalida(ActionEvent e) {
         String placa = JOptionPane.showInputDialog(frame, "Ingrese la placa del vehículo para registrar su salida:");
@@ -202,12 +197,29 @@ public class ParqueaderoGUI {
 
         placa = placa.trim().toUpperCase();
 
-        boolean salidaExitosa = parqueadero.registrarSalida(placa);
-        if (salidaExitosa) {
-            actualizarEspacios();
-            JOptionPane.showMessageDialog(frame, "Salida registrada exitosamente.");
-        } else {
-            JOptionPane.showMessageDialog(frame, "No se encontró el vehículo.");
+        // Primero intentamos eliminar de la base de datos
+        try (Connection conn = DriverManager.getConnection("jdbc:mysql://localhost:3306/parqueadero", "root", "")) {
+            String sql = "DELETE FROM vehiculos WHERE placa = ?";
+            try (PreparedStatement stmt = conn.prepareStatement(sql)) {
+                stmt.setString(1, placa);
+                int filasAfectadas = stmt.executeUpdate();
+                
+                // Si se eliminó de la BD, procedemos a eliminar del parqueadero
+                if (filasAfectadas > 0) {
+                    boolean salidaExitosa = parqueadero.registrarSalida(placa);
+                    if (salidaExitosa) {
+                        actualizarEspacios();
+                        JOptionPane.showMessageDialog(frame, 
+                            "Vehículo eliminado exitosamente de la base de datos y del parqueadero.");
+                    }
+                } else {
+                    JOptionPane.showMessageDialog(frame, "No se encontró el vehículo en la base de datos.");
+                }
+            }
+        } catch (SQLException ex) {
+            ex.printStackTrace();
+            JOptionPane.showMessageDialog(frame, 
+                "Error al eliminar el vehículo de la base de datos: " + ex.getMessage());
         }
     }
 
