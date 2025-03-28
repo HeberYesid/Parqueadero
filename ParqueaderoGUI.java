@@ -163,7 +163,14 @@ public class ParqueaderoGUI {
             return;
         }
 
-        // Insertar datos en la base de datos
+        // Primero verificar si hay espacio disponible
+        int espacio = parqueadero.registrarVehiculo(placa, marca, color, esDiscapacitado);
+        if (espacio == -1) {
+            JOptionPane.showMessageDialog(frame, "No hay espacios disponibles en el parqueadero.");
+            return;
+        }
+
+        // Si hay espacio, entonces registrar en la base de datos
         try (Connection conn = DriverManager.getConnection("jdbc:mysql://localhost:3306/parqueadero", "root", "")) {
             String sql = "INSERT INTO vehiculos (placa, pais, discapacitado, marca, color) VALUES (?, ?, ?, ?, ?)";
             try (PreparedStatement stmt = conn.prepareStatement(sql)) {
@@ -174,20 +181,17 @@ public class ParqueaderoGUI {
                 stmt.setString(5, color);
 
                 stmt.executeUpdate();
-                
-                // Registrar en el parqueadero y actualizar GUI
-                int espacio = parqueadero.registrarVehiculo(placa, marca, color, esDiscapacitado);
-                if (espacio == -1) {
-                    JOptionPane.showMessageDialog(frame, "No hay espacios disponibles en el parqueadero.");
-                } else {
-                    actualizarEspacios();
-                    JOptionPane.showMessageDialog(frame, 
-                        "Vehículo registrado exitosamente en la base de datos y asignado al espacio " + (espacio + 1));
-                }
+                actualizarEspacios();
+                JOptionPane.showMessageDialog(frame, 
+                    "Vehículo registrado exitosamente y asignado al espacio " + (espacio + 1));
             }
         } catch (SQLException ex) {
+            // Si hay error en la BD, eliminar el vehículo del parqueadero
+            parqueadero.registrarSalida(placa);
+            actualizarEspacios();
             ex.printStackTrace();
-            JOptionPane.showMessageDialog(frame, "Error al registrar el vehículo en la base de datos: " + ex.getMessage());
+            JOptionPane.showMessageDialog(frame, 
+                "Error al registrar el vehículo en la base de datos: " + ex.getMessage());
         }
     }
 
