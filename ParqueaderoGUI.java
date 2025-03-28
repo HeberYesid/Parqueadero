@@ -4,6 +4,8 @@ import java.sql.Connection;
 import java.sql.DriverManager;
 import java.sql.PreparedStatement;
 import java.sql.SQLException;
+import java.sql.ResultSet;
+
 
 import javax.swing.*;
 
@@ -172,15 +174,26 @@ public class ParqueaderoGUI {
 
         // Si hay espacio, entonces registrar en la base de datos
         try (Connection conn = DriverManager.getConnection("jdbc:mysql://localhost:3306/parqueadero", "root", "")) {
-            String sql = "INSERT INTO vehiculos (placa, pais, discapacitado, marca, color) VALUES (?, ?, ?, ?, ?)";
-            try (PreparedStatement stmt = conn.prepareStatement(sql)) {
-                stmt.setString(1, placa);
-                stmt.setString(2, pais);
-                stmt.setBoolean(3, esDiscapacitado);
-                stmt.setString(4, marca);
-                stmt.setString(5, color);
+            // Primero insertamos en la tabla de vehículos activos
+            String sqlVehiculo = "INSERT INTO vehiculos (placa, pais, discapacitado, marca, color) VALUES (?, ?, ?, ?, ?)";
+            String sqlHistorico = "INSERT INTO historico_vehiculos (placa, pais, discapacitado, marca, color, tipo_movimiento) VALUES (?, ?, ?, ?, ?, 'ENTRADA')";
+            
+            try (PreparedStatement stmtVehiculo = conn.prepareStatement(sqlVehiculo);
+                 PreparedStatement stmtHistorico = conn.prepareStatement(sqlHistorico)) {
+                
+                // Preparar datos para ambas tablas
+                for (PreparedStatement stmt : new PreparedStatement[]{stmtVehiculo, stmtHistorico}) {
+                    stmt.setString(1, placa);
+                    stmt.setString(2, pais);
+                    stmt.setBoolean(3, esDiscapacitado);
+                    stmt.setString(4, marca);
+                    stmt.setString(5, color);
+                }
 
-                stmt.executeUpdate();
+                // Ejecutar ambas inserciones
+                stmtVehiculo.executeUpdate();
+                stmtHistorico.executeUpdate();
+                
                 actualizarEspacios();
                 JOptionPane.showMessageDialog(frame, 
                     "Vehículo registrado exitosamente y asignado al espacio " + (espacio + 1));
@@ -201,29 +214,48 @@ public class ParqueaderoGUI {
 
         placa = placa.trim().toUpperCase();
 
-        // Primero intentamos eliminar de la base de datos
         try (Connection conn = DriverManager.getConnection("jdbc:mysql://localhost:3306/parqueadero", "root", "")) {
-            String sql = "DELETE FROM vehiculos WHERE placa = ?";
-            try (PreparedStatement stmt = conn.prepareStatement(sql)) {
-                stmt.setString(1, placa);
-                int filasAfectadas = stmt.executeUpdate();
+            // Primero obtener los datos del vehículo antes de eliminarlo
+            String sqlSelect = "SELECT * FROM vehiculos WHERE placa = ?";
+            String sqlDelete = "DELETE FROM vehiculos WHERE placa = ?";
+            String sqlHistorico = "INSERT INTO historico_vehiculos (placa, pais, discapacitado, marca, color, tipo_movimiento) VALUES (?, ?, ?, ?, ?, 'SALIDA')";
+
+            try (PreparedStatement stmtSelect = conn.prepareStatement(sqlSelect)) {
+                stmtSelect.setString(1, placa);
+                ResultSet rs = stmtSelect.executeQuery();
+
                 
-                // Si se eliminó de la BD, procedemos a eliminar del parqueadero
-                if (filasAfectadas > 0) {
+                if (rs.next()) {
+                    // Guardar los datos en el histórico
+                    try (PreparedStatement stmtHistorico = conn.prepareStatement(sqlHistorico)) {
+                        stmtHistorico.setString(1, rs.getString("placa"));
+                        stmtHistorico.setString(2, rs.getString("pais"));
+                        stmtHistorico.setBoolean(3, rs.getBoolean("discapacitado"));
+                        stmtHistorico.setString(4, rs.getString("marca"));
+                        stmtHistorico.setString(5, rs.getString("color"));
+                        stmtHistorico.executeUpdate();
+                    }
+
+                    // Eliminar el vehículo de la tabla de activos
+                    try (PreparedStatement stmtDelete = conn.prepareStatement(sqlDelete)) {
+                        stmtDelete.setString(1, placa);
+                        stmtDelete.executeUpdate();
+                    }
+
                     boolean salidaExitosa = parqueadero.registrarSalida(placa);
                     if (salidaExitosa) {
                         actualizarEspacios();
                         JOptionPane.showMessageDialog(frame, 
-                            "Vehículo eliminado exitosamente de la base de datos y del parqueadero.");
+                            "Vehículo eliminado exitosamente y registrado en el histórico.");
                     }
                 } else {
-                    JOptionPane.showMessageDialog(frame, "No se encontró el vehículo en la base de datos.");
+                    JOptionPane.showMessageDialog(frame, "No se encontró el vehículo en el sistema.");
                 }
             }
         } catch (SQLException ex) {
             ex.printStackTrace();
             JOptionPane.showMessageDialog(frame, 
-                "Error al eliminar el vehículo de la base de datos: " + ex.getMessage());
+                "Error al procesar la salida del vehículo: " + ex.getMessage());
         }
     }
 
