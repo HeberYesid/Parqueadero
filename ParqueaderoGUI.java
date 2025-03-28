@@ -34,56 +34,86 @@ public class ParqueaderoGUI {
     }
 
     private JPanel crearPanelDatos() {
-        JPanel panel = new JPanel();
-        panel.setLayout(new GridLayout(8, 1, 10, 10));
+        // Panel principal con BorderLayout
+        JPanel panel = new JPanel(new BorderLayout(10, 10));
         panel.setBorder(BorderFactory.createEmptyBorder(10, 10, 10, 10));
 
+        // Panel para el título
+        JPanel panelTitulo = new JPanel(new FlowLayout(FlowLayout.CENTER));
         JLabel lblTitulo = new JLabel("Registrar Vehículo");
-        lblTitulo.setFont(new Font("Arial", Font.BOLD, 16));
-        lblTitulo.setHorizontalAlignment(SwingConstants.CENTER);
+        lblTitulo.setFont(new Font("Arial", Font.BOLD, 20));
+        panelTitulo.add(lblTitulo);
 
-        // Campo de texto para la placa
+        // Panel para los campos de entrada
+        JPanel panelCampos = new JPanel(new GridBagLayout());
+        GridBagConstraints gbc = new GridBagConstraints();
+        gbc.fill = GridBagConstraints.HORIZONTAL;
+        gbc.insets = new Insets(5, 5, 5, 5);
+
+        // Configuración de los campos
         JLabel lblPlaca = new JLabel("Placa:");
-        txtPlaca = new JTextField();
-
-        // Selección de país
+        txtPlaca = new JTextField(15);
+        
         JLabel lblPais = new JLabel("País:");
         String[] opcionesPais = {"Colombiana", "Venezolana"};
         cbPais = new JComboBox<>(opcionesPais);
-
-        // Checkbox para discapacitados
+        
         chkDiscapacitado = new JCheckBox("¿Es discapacitado?");
-
-        // Selección de marca
+        
         JLabel lblMarca = new JLabel("Marca:");
-        String[] marcas = {"Toyota", "Chevrolet", "Mazda", "Nissan", "Hyundai","Kia", "Ford", "Volkswagen", "Renault", "Honda","BMW", "Mercedes-Benz", "Audi", "Peugeot", "Jeep","Fiat", "Subaru", "Mitsubishi", "Suzuki", "Land Rover"};
+        String[] marcas = {"Toyota", "Chevrolet", "Mazda", "Nissan", "Hyundai", "Kia", "Ford", 
+                          "Volkswagen", "Renault", "Honda", "BMW", "Mercedes-Benz", "Audi", 
+                          "Peugeot", "Jeep", "Fiat", "Subaru", "Mitsubishi", "Suzuki", "Land Rover"};
         cbMarca = new JComboBox<>(marcas);
-
-        // Selección de color
+        
         JLabel lblColor = new JLabel("Color:");
-        String[] colores = {"Rojo", "Azul", "Negro", "Blanco", "Plateado","Gris", "Verde", "Amarillo", "Naranja", "Marrón"};
+        String[] colores = {"Rojo", "Azul", "Negro", "Blanco", "Plateado", "Gris", 
+                           "Verde", "Amarillo", "Naranja", "Marrón"};
         cbColor = new JComboBox<>(colores);
 
-        // Botones de acción
+        // Agregar componentes usando GridBagLayout
+        gbc.gridx = 0; gbc.gridy = 0;
+        panelCampos.add(lblPlaca, gbc);
+        gbc.gridx = 1;
+        panelCampos.add(txtPlaca, gbc);
+
+        gbc.gridx = 0; gbc.gridy = 1;
+        panelCampos.add(lblPais, gbc);
+        gbc.gridx = 1;
+        panelCampos.add(cbPais, gbc);
+
+        gbc.gridx = 0; gbc.gridy = 2;
+        gbc.gridwidth = 2;
+        panelCampos.add(chkDiscapacitado, gbc);
+
+        gbc.gridx = 0; gbc.gridy = 3;
+        gbc.gridwidth = 1;
+        panelCampos.add(lblMarca, gbc);
+        gbc.gridx = 1;
+        panelCampos.add(cbMarca, gbc);
+
+        gbc.gridx = 0; gbc.gridy = 4;
+        panelCampos.add(lblColor, gbc);
+        gbc.gridx = 1;
+        panelCampos.add(cbColor, gbc);
+
+        // Panel para los botones
+        JPanel panelBotones = new JPanel(new FlowLayout(FlowLayout.CENTER, 20, 10));
         JButton btnRegistrar = new JButton("Registrar Entrada");
-        btnRegistrar.addActionListener(this::registrarEntrada);
-
         JButton btnSalida = new JButton("Registrar Salida");
+        btnRegistrar.addActionListener(this::registrarEntrada);
         btnSalida.addActionListener(this::registrarSalida);
+        
+        // Estilo para los botones
+        btnRegistrar.setPreferredSize(new Dimension(150, 30));
+        btnSalida.setPreferredSize(new Dimension(150, 30));
+        panelBotones.add(btnRegistrar);
+        panelBotones.add(btnSalida);
 
-        // Agregar elementos al panel
-        panel.add(lblTitulo);
-        panel.add(lblPlaca);
-        panel.add(txtPlaca);
-        panel.add(lblPais);
-        panel.add(cbPais);
-        panel.add(chkDiscapacitado);
-        panel.add(lblMarca);
-        panel.add(cbMarca);
-        panel.add(lblColor);
-        panel.add(cbColor);
-        panel.add(btnRegistrar);
-        panel.add(btnSalida);
+        // Agregar todos los paneles al panel principal
+        panel.add(panelTitulo, BorderLayout.NORTH);
+        panel.add(panelCampos, BorderLayout.CENTER);
+        panel.add(panelBotones, BorderLayout.SOUTH);
 
         return panel;
     }
